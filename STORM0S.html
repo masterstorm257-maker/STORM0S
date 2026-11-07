@@ -166,7 +166,72 @@ async function play(g){
   const externalHtml = isCatalogHtml(g);
   $('frame').setAttribute('sandbox', externalHtml && g.extra !== 'embedded-skate-fan'
     ? defaultPlayerSandbox.replace('allow-same-origin','').trim() : defaultPlayerSandbox);
-  $('back').textContent = g.fromCloud ? '\u2190 Back to Cloud' : '\u2190 Library';const seq=++sequence;lastFocus=document.activeElement;current={...g,blob:null};$('playing').textContent=g.name;$('newtab').removeAttribute('href');$('download').disabled=true;$('frame').removeAttribute('srcdoc');$('frame').src='about:blank';$('player').hidden=false;document.body.style.overflow='hidden';$('playerStatus').textContent=g.extra?'Unpacking embedded game…':'Loading game…';showBar();$('back').focus();if(g.url)$('newtab').href=g.url;try{let url=g.url,blob=null;if(g.arcadeId){const template=await (await unpack('storm-50-games')).text();blob=new Blob([template.replace('data-game="STORM_ARCADE_GAME"','data-game="'+g.arcadeId+'"')],{type:'text/html'})}else if(g.extra){blob=await unpack(g.extra,g.mime||'text/html');if(g.extra==='embedded-cinema'){let cinema=await blob.text();const vars=['bg','panel','text','muted','accent'].map(k=>'--stormCinema-'+k+':'+prefs[k]).join(';');cinema=cinema.replace('</head>','<style>:root{'+vars+'}</style></head>');blob=new Blob([cinema],{type:'text/html'})}}else if(g.fetchGame){try{if(g.source==='Apps'&&/\.svg(?:[?#]|$)/i.test(g.url)){const r=await retrieve(g.url);const doc=new DOMParser().parseFromString(r.text,'image/svg+xml');if(doc.querySelector('parsererror'))throw Error('Invalid SVG app');doc.documentElement.setAttributeNS('http://www.w3.org/XML/1998/namespace','xml:base',r.url);const head=doc.getElementsByTagNameNS('http://www.w3.org/1999/xhtml','head')[0];if(head&&!head.querySelector('base')){const base=doc.createElementNS('http://www.w3.org/1999/xhtml','base');base.setAttribute('href',r.url);head.prepend(base)}blob=new Blob([new XMLSerializer().serializeToString(doc)],{type:'image/svg+xml'})}else blob=new Blob([await playableHTML(g)],{type:'text/html'})}catch(error){if(!g.frameFallback)throw error}}if(seq!==sequence)return;if(activeBlob){URL.revokeObjectURL(activeBlob);activeBlob=null}if(blob){activeBlob=URL.createObjectURL(blob);url=activeBlob}const skateDocument = g.extra === 'embedded-skate-fan' && blob ? await blob.text() : null;
+  $('back').textContent = g.fromCloud ? '\u2190 Back to Cloud' : '\u2190 Library';const seq=++sequence;lastFocus=document.activeElement;current={...g,blob:null};$('playing').textContent=g.name;$('newtab').removeAttribute('href');$('download').disabled=true;$('frame').removeAttribute('srcdoc');$('frame').src='about:blank';$('player').hidden=false;document.body.style.overflow='hidden';$('playerStatus').textContent=g.extra?'Unpacking embedded game…':'Loading game…';showBar();$('back').focus();if(g.url)$('newtab').href=g.url;try{let url=g.url,blob=null;if(g.arcadeId){const template=await (await unpack('storm-50-games')).text();blob=new Blob([template.replace('data-game="STORM_ARCADE_GAME"','data-game="'+g.arcadeId+'"')],{type:'text/html'})}else if(g.extra){blob=await unpack(g.extra,g.mime||'text/html');
+    if (['embedded-spotify','embedded-cinema'].includes(g.extra)) {
+      const relay = location.protocol === 'file:' ? new URL('STORM0S-browser.html',location.href).href : document.getElementById('stormBrowserStandalone').href;
+      const bridgeScript = '<script>('+(function mediaFallback(bridgeUrl) {
+  const direct = window.fetch.bind(window);
+  const hosts = ['itunes.apple.com','api.themoviedb.org'];
+  let connection;
+  function connect() {
+    if (connection) return connection;
+    const frame = document.createElement('iframe');
+    frame.hidden = true;
+    const origin = new URL(bridgeUrl).origin;
+    connection = new Promise((resolve,reject)=>{
+      function ready(event) {
+        if (event.source !== frame.contentWindow || event.origin !== origin || event.data !== 'storm-media-ready') return;
+        clearTimeout(timer);
+        window.removeEventListener('message',ready);
+        resolve(frame.contentWindow);
+      }
+      const timer = setTimeout(()=>{
+        window.removeEventListener('message',ready);
+        frame.remove();
+        connection = null;
+        reject(Error('Media relay did not load'));
+      },20000);
+      window.addEventListener('message',ready);
+      frame.src = bridgeUrl;
+      document.body.append(frame);
+    });
+    return connection;
+  }
+  async function relay(url,headers) {
+    const peer = await connect();
+    const channel = new MessageChannel();
+    return new Promise((resolve,reject)=>{
+      const finish = () => {clearTimeout(timer);channel.port1.close()};
+      const timer = setTimeout(()=>{finish();reject(Error('Media relay timed out'))},25000);
+      channel.port1.onmessage = ({data})=>{
+        finish();
+        if(data.error) reject(Error(data.error));
+        else resolve(new Response(data.body,{status:data.status,headers:{'Content-Type':'application/json'}}));
+      };
+      const origin = new URL(bridgeUrl).origin;
+      peer.postMessage({type:'storm-media-get',url,authorization:headers.get('Authorization')},origin === 'null' ? '*' : origin,[channel.port2]);
+    });
+  }
+  window.fetch = async (resource,options={})=>{
+    const url = new URL(resource instanceof Request ? resource.url : resource,location.href);
+    const method = options.method || (resource instanceof Request ? resource.method : 'GET');
+    if (url.protocol!=='https:' || !hosts.includes(url.hostname) || method.toUpperCase()!=='GET') return direct(resource,options);
+    const signal = options.signal || (resource instanceof Request ? resource.signal : undefined);
+    let response;
+    try {
+      response = await direct(resource,options);
+      if(response.status<500 && response.status!==408) return response;
+    } catch(error) {
+      if(signal?.aborted && signal.reason?.name!=='TimeoutError') throw error;
+    }
+    try {return await relay(url.href,new Headers(options.headers || (resource instanceof Request ? resource.headers : undefined)))}
+    catch(error){if(response)return response;throw error}
+  };
+}).toString()+')('+JSON.stringify(relay+'#media-api')+');<\/script>';
+      const mediaPage = (await blob.text()).replace(/<head\b[^>]*>/i,tag=>tag+bridgeScript);
+      blob = new Blob([mediaPage],{type:'text/html'});
+    }
+if(g.extra==='embedded-cinema'){let cinema=await blob.text();const vars=['bg','panel','text','muted','accent'].map(k=>'--stormCinema-'+k+':'+prefs[k]).join(';');cinema=cinema.replace('</head>','<style>:root{'+vars+'}</style></head>');blob=new Blob([cinema],{type:'text/html'})}}else if(g.fetchGame){try{if(g.source==='Apps'&&/\.svg(?:[?#]|$)/i.test(g.url)){const r=await retrieve(g.url);const doc=new DOMParser().parseFromString(r.text,'image/svg+xml');if(doc.querySelector('parsererror'))throw Error('Invalid SVG app');doc.documentElement.setAttributeNS('http://www.w3.org/XML/1998/namespace','xml:base',r.url);const head=doc.getElementsByTagNameNS('http://www.w3.org/1999/xhtml','head')[0];if(head&&!head.querySelector('base')){const base=doc.createElementNS('http://www.w3.org/1999/xhtml','base');base.setAttribute('href',r.url);head.prepend(base)}blob=new Blob([new XMLSerializer().serializeToString(doc)],{type:'image/svg+xml'})}else blob=new Blob([await playableHTML(g)],{type:'text/html'})}catch(error){if(!g.frameFallback)throw error}}if(seq!==sequence)return;if(activeBlob){URL.revokeObjectURL(activeBlob);activeBlob=null}if(blob){activeBlob=URL.createObjectURL(blob);url=activeBlob}const skateDocument = g.extra === 'embedded-skate-fan' && blob ? await blob.text() : null;
 if (seq !== sequence) return;
 current={...g,blob,playUrl:url};$('frame').title=g.name;
 if (skateDocument) $('frame').srcdoc = skateDocument;
