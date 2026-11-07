@@ -192,9 +192,150 @@ const hub=document.getElementById('onlineHub'),hubFrame=document.getElementById(
 </script><script>
 if(!read('storm-home-redesign-v1',false)){prefs={...prefs,...palettes.new0,pattern:'constellations'};write('storm-home-redesign-v1',true);appearance()}
 const sky=document.getElementById('sky'),ctx=sky.getContext('2d');function paintSky(){sky.width=innerWidth;sky.height=innerHeight;ctx.clearRect(0,0,sky.width,sky.height);if(document.body.dataset.pattern!=='constellations')return;const points=Array.from({length:65},(_,i)=>({x:((Math.sin(i*127.1)*43758.5453)%1+1)%1*sky.width,y:((Math.sin(i*311.7)*12345.678)%1+1)%1*sky.height}));ctx.fillStyle=prefs.accent;for(const p of points){ctx.globalAlpha=.3;ctx.beginPath();ctx.arc(p.x,p.y,1.3,0,7);ctx.fill()}ctx.strokeStyle=prefs.accent;ctx.globalAlpha=.09;for(let i=0;i<points.length;i++)for(let j=i+1;j<points.length;j++){const a=points[i],b=points[j];if(Math.hypot(a.x-b.x,a.y-b.y)<130){ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);ctx.stroke()}}}new MutationObserver(paintSky).observe(document.body,{attributes:true,attributeFilter:['data-pattern']});window.addEventListener('resize',paintSky);paintSky();
-</script><section id="stormBrowser" hidden style="position:fixed;inset:0;z-index:35;display:flex;flex-direction:column;background:var(--bg)"><div style="display:flex;gap:12px;padding:12px;align-items:center;flex-wrap:wrap;background:var(--panel)"><button id="browserHome">Home</button><b style="flex:1">Storm0S Browser</b><button id="browserReload">Reload</button><a href="https://obscure-goggles-5v5pxjp67v5jcv9r-8080.app.github.dev/" target="_blank" rel="noopener noreferrer">Open in new tab</a></div><p style="margin:0;padding:10px 16px;font-size:12px;color:var(--muted)">Powered by Interstellar. Keep the Codespace running. If the embed is blank or asks you to sign in, use Open in new tab and check that port 8080 is public.</p><iframe id="stormBrowserFrame" title="Interstellar web browser" style="flex:1;width:100%;min-height:0;border:0;background:#111" allow="fullscreen;autoplay;gamepad;clipboard-write" allowfullscreen></iframe></section><script>
-function stormProxyURL(){const base=/^https?:$/.test(location.protocol)?new URL('./proxy/',location.href):new URL('https://storm0s.netlify.app/proxy/');const css=getComputedStyle(document.documentElement);for(const [q,k] of [['bg','--bg'],['accent','--accent'],['text-primary','--text'],['text-dim','--muted']])base.searchParams.set(q,css.getPropertyValue(k).trim());return base.href}
-const browserPanel=document.getElementById('stormBrowser'),browserFrame=document.getElementById('stormBrowserFrame');document.getElementById('openStormBrowser').onclick=()=>{browserPanel.hidden=false;browserFrame.src=stormProxyURL();document.body.style.overflow='hidden'};document.getElementById('browserHome').onclick=()=>{browserFrame.src='about:blank';browserPanel.hidden=true;document.body.style.overflow='';document.getElementById('openStormBrowser').focus()};document.getElementById('browserReload').onclick=()=>browserFrame.src=stormProxyURL();
+</script><section id="stormBrowser" hidden style="position:fixed;inset:0;z-index:35;display:flex;flex-direction:column;background:var(--bg)">
+<div style="display:flex;gap:12px;padding:12px;align-items:center;flex-wrap:wrap;background:var(--panel)">
+<button id="browserHome">Exit browser</button><b style="flex:1">STORM0S Browser</b>
+<form id="stormWispAddress" style="display:flex;gap:6px;flex:2"><input aria-label="Website address" placeholder="Enter a website" required style="flex:1;min-width:8em"><button>Go</button></form><button id="browserStartButton">Home</button><button id="browserReload">Reload</button><a id="stormBrowserStandalone" href="https://raw.githack.com/masterstorm257-maker/STORM0S/main/STORM0S-browser.html" target="_blank" rel="noopener noreferrer">Open in new tab</a></div>
+<style>
+#stormBrowser [hidden]{display:none!important}
+#stormBrowserStart{flex:1;overflow:auto;text-align:center;color:var(--text);background-color:var(--bg);background-image:radial-gradient(circle at 24px 18px,var(--muted) .7px,transparent 1px),radial-gradient(circle at 66px 55px,var(--accent) .6px,transparent 1px),radial-gradient(ellipse at top,color-mix(in srgb,var(--accent) 14%,transparent),transparent 65%);background-size:141px 103px,231px 167px,100% 100%}
+#stormBrowserStart h1{font-size:clamp(44px,8vw,92px);letter-spacing:-.06em;margin:clamp(44px,13vh,130px) 0 22px}
+#stormBrowserSearch{display:flex;max-width:460px;margin:auto;padding:0 16px;gap:6px}
+#stormBrowserSearch input{min-width:0;flex:1;padding:12px 16px;border-radius:24px}
+#stormBrowserStart nav{display:flex;justify-content:center;gap:8px;margin:14px}
+#stormBrowserStart h2{margin:46px 0 12px;font-size:15px}
+#browserJoins{list-style:none;padding:0 16px 18px;display:flex;justify-content:safe center;gap:10px;overflow-x:auto}
+#browserJoins li{flex:none;text-align:left;padding:12px 18px;background:var(--panel);border:1px solid color-mix(in srgb,var(--accent) 32%,transparent);border-radius:14px}
+#browserJoins time{display:block;color:var(--muted);font-size:12px;margin-top:4px}
+#stormBrowserStart {position:relative;isolation:isolate;overflow-x:clip}
+#stormBrowserStart::before,#stormBrowserStart::after {
+  content:"";position:absolute;inset:-6% 0 8%;z-index:-1;pointer-events:none;
+}
+#stormBrowserStart::before {
+  background:radial-gradient(ellipse at 20% 32%,color-mix(in srgb,var(--accent) 32%,transparent),transparent 44%),
+    radial-gradient(ellipse at 83% 51%,color-mix(in srgb,var(--accent) 16%,transparent),transparent 38%);
+  animation:stormGlowDrift 12s ease-in-out infinite alternate;
+}
+#stormBrowserStart::after {
+  background-image:radial-gradient(circle,var(--accent) 1.3px,transparent 2px),radial-gradient(circle,var(--text) .8px,transparent 1.5px);
+  background-size:129px 97px,207px 151px;opacity:.48;animation:stormStarDrift 36s linear infinite;
+}
+@keyframes stormGlowDrift { to {transform:translateY(6%) scale(.95);opacity:.65} }
+@keyframes stormStarDrift { to {background-position:129px -97px,-207px -151px} }
+#stormBrowserStart h1 {text-shadow:0 4px 36px color-mix(in srgb,var(--accent) 35%,transparent)}
+#stormBrowser #stormBrowserSearch,#stormBrowser #stormWispAddress {
+  align-items:center;padding:5px 6px 5px 14px;border-radius:24px;
+  background:linear-gradient(115deg,color-mix(in srgb,var(--accent) 24%,var(--bg)),color-mix(in srgb,var(--accent) 12%,var(--panel)));
+  border:1px solid color-mix(in srgb,var(--accent) 60%,var(--bg));
+}
+#stormBrowser #stormBrowserSearch {width:min(90%,500px);box-sizing:border-box}
+#stormBrowser form:focus-within {outline:2px solid var(--accent);outline-offset:3px}
+#stormBrowser #stormBrowserSearch input,#stormBrowser #stormWispAddress input {
+  background:transparent;color:var(--text);caret-color:var(--accent);border:0;box-shadow:none;outline:0;padding:9px 4px;font:inherit;
+}
+#stormBrowser input::placeholder {color:color-mix(in srgb,var(--text) 78%,var(--accent));opacity:1}
+#stormBrowser button,#stormBrowserStandalone {
+  color:var(--text);background:color-mix(in srgb,var(--accent) 13%,var(--panel));
+  border:1px solid color-mix(in srgb,var(--accent) 44%,var(--panel));border-radius:14px;
+  padding:9px 15px;font-weight:650;text-decoration:none;transition:transform .18s,background .18s,box-shadow .18s;
+}
+#stormBrowser form button {border-radius:20px;background:color-mix(in srgb,var(--accent) 34%,var(--bg))}
+#stormBrowser button:not(:disabled):hover,#stormBrowserStandalone:hover {
+  transform:translateY(-2px);background:color-mix(in srgb,var(--accent) 29%,var(--panel));
+  box-shadow:0 5px 15px color-mix(in srgb,var(--accent) 19%,transparent);
+}
+#stormBrowser button:focus-visible,#stormBrowserStandalone:focus-visible {outline:2px solid var(--accent);outline-offset:3px}
+#stormBrowser button:disabled {opacity:.48}
+#stormBrowserStart nav {flex-wrap:wrap}
+@media (prefers-reduced-motion:reduce) {
+  #stormBrowserStart::before,#stormBrowserStart::after {animation:none}
+  #stormBrowser button,#stormBrowserStandalone {transition:none}
+  #stormBrowser button:not(:disabled):hover,#stormBrowserStandalone:hover {transform:none}
+}
+
+</style>
+<div id="stormBrowserStart"><h1>STORM0S</h1><form id="stormBrowserSearch"><input aria-label="Search or enter a website" placeholder="Search the web or enter a website" required><button>Go</button></form><nav aria-label="Browser shortcuts"><button data-url="https://www.youtube.com/">YouTube</button><button data-url="https://www.wikipedia.org/">Wikipedia</button><button data-url="https://github.com/">GitHub</button></nav><h2>Recent joins</h2><ul id="browserJoins"></ul></div>
+<iframe hidden id="stormBrowserFrame" title="GN Wisp browser" style="flex:1;width:100%;min-height:0;border:0;background:#111" referrerpolicy="no-referrer" allow="fullscreen; autoplay" allowfullscreen></iframe></section>
+<script>
+(() => {
+  const panel = document.getElementById('stormBrowser');
+  let frame = document.getElementById('stormBrowserFrame');
+  const launch = document.getElementById('openStormBrowser');
+  const client = location.protocol === 'file:' ? new URL('STORM0S-browser.html',location.href).href : document.getElementById('stormBrowserStandalone').href;
+  window.addEventListener('message',event=>{
+    if(event.source===frame.contentWindow && event.data==='storm-browser-home-v1' && !panel.hidden) showStart();
+  });
+  const standalone = document.getElementById('stormBrowserStandalone');
+  const address = document.getElementById('stormWispAddress');
+  const input = address.querySelector('input');
+  const startPage = document.getElementById('stormBrowserStart');
+  const search = document.getElementById('stormBrowserSearch');
+  const feed = document.getElementById('stormHomeJoinsList');
+  const joins = document.getElementById('browserJoins');
+  function syncJoins() {
+    joins.replaceChildren(...Array.from(feed.childNodes, node => node.cloneNode(true)));
+  }
+  new MutationObserver(syncJoins).observe(feed, {childList:true, subtree:true, characterData:true});
+  function showStart() {
+    frame.hidden = true;
+    frame.src = 'about:blank';
+    startPage.hidden = false;
+    standalone.hidden = true;
+    document.getElementById('browserReload').disabled = true;
+    input.value = '';
+    syncJoins();
+    search.elements[0].focus();
+  }
+  document.getElementById('browserStartButton').onclick = showStart;
+  function openValue(value) {
+    input.value = value;
+    input.setCustomValidity('');
+    address.requestSubmit();
+  }
+  search.onsubmit = event => {
+    event.preventDefault();
+    openValue(search.elements[0].value);
+  };
+  startPage.querySelectorAll('[data-url]').forEach(button => {
+    button.onclick = () => openValue(button.dataset.url);
+  });
+  input.oninput = () => input.setCustomValidity('');
+  address.onsubmit = event => {
+    event.preventDefault();
+    try {
+      const value = input.value.trim();
+      if (!value) return;
+      const isSearch = !/^[a-z][a-z0-9+.-]*:/i.test(value) && (/\s/.test(value) || !value.includes('.'));
+      const url = isSearch ? new URL('https://duckduckgo.com/?q=' + encodeURIComponent(value)) : new URL(/^[a-z][a-z0-9+.-]*:/i.test(value) ? value : 'https://' + value);
+      if (!['https:', 'http:'].includes(url.protocol)) throw Error();
+      standalone.href = client + '#open=' + encodeURIComponent(url.href);
+      // A new document runs GN's startup handler for the destination hash.
+      const fresh = frame.cloneNode(false);
+      fresh.hidden = false;
+      fresh.src = standalone.href;
+      startPage.hidden = true;
+      standalone.hidden = false;
+      document.getElementById('browserReload').disabled = false;
+      frame.replaceWith(fresh);
+      frame = fresh;
+    } catch {
+      input.setCustomValidity('Enter an HTTP or HTTPS website address.');
+      input.reportValidity();
+    }
+  };
+  launch.onclick = () => {
+    panel.hidden = false;
+    document.body.style.overflow = 'hidden';
+    showStart();
+  };
+  document.getElementById('browserReload').onclick = () => address.requestSubmit();
+  document.getElementById('browserHome').onclick = () => {
+    frame.src = 'about:blank';
+    panel.hidden = true;
+    document.body.style.overflow = '';
+    launch.focus();
+  };
+})();
 </script><section id="toolbox" hidden><header class="toolTop"><button id="toolsHome">⌂ Home</button><h2 id="toolTitle">Tools</h2><nav id="toolTabs"><button data-tool="drawing">Drawing pad</button><button data-tool="bookmarklets">Bookmarklets</button><button data-tool="playground">HTML playground</button><button data-tool="json">JSON formatter</button><button data-tool="books">Books</button><button data-tool="morse">Morse</button><button data-tool="calculator">Calculator</button><button data-tool="notes">Notes</button><button data-tool="timer">Focus timer</button><button data-tool="projects">Projects</button></nav></header><div class="toolBody">
 <style>
 .stormToolRow{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:14px 0}.stormToolRow label{display:flex;gap:8px;align-items:center}.stormEditors{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}.stormEditors textarea{min-height:240px;font-family:monospace}#drawingCanvas{display:block;width:100%;height:auto;touch-action:none;background:#fff;border-radius:12px;border:1px solid var(--muted)}#htmlPreview{width:100%;height:420px;background:white;border:1px solid var(--muted);border-radius:12px}#bookmarkletCode,#bookmarkletResult,#jsonInput{font-family:monospace;min-height:200px}#bookmarkletResult{min-height:100px}.bookmarkletItem{padding:14px;background:var(--panel);border-radius:12px;margin:10px 0;display:flex;gap:12px;align-items:center;flex-wrap:wrap}.bookmarkletItem a{color:var(--accent)}@media(max-width:700px){.stormEditors{grid-template-columns:1fr}.stormEditors textarea{min-height:160px}}
