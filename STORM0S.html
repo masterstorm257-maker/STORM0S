@@ -1009,19 +1009,10 @@ function sameSettings(left,right){
 }
 async function restore(session){if(restoring||syncReady&&activeUser===session.user.id)return;restoring=true;syncReady=false;activeUser=session.user.id;$('stormCloudStatus').textContent='Restoring account settings…';try{const c=await api();const {data,error}=await c.from('storm_account_settings').select('settings').eq('user_id',activeUser).maybeSingle();if(error)throw error;if(data){const incoming={};for(const [k,v]of Object.entries(data.settings||{}))if(allowed(k)&&typeof v==='string')incoming[k]=v;window.stormMigrateGenesis(incoming);
 const before=snapshot();
-const resumeKey='storm.restore.once';
-let resumed=false;
-try{
-  const saved=JSON.parse(sessionStorage.getItem(resumeKey)||'null');
-  sessionStorage.removeItem(resumeKey);
-  resumed=saved?.user===activeUser && Date.now()-saved.time<30000 &&
-    performance.getEntriesByType('navigation')[0]?.type==='reload';
-}catch{}
-if(!resumed && !sameSettings(before,incoming)){
-for(const k of Object.keys(localStorage))if(allowed(k))localStorage.removeItem(k);for(const [k,v]of Object.entries(incoming))localStorage.setItem(k,v);try{
-  sessionStorage.setItem(resumeKey,JSON.stringify({user:activeUser,time:Date.now()}));
-  location.reload();return;
-}catch{}
+if(!sameSettings(before,incoming)){
+  // Write replacements first so a storage failure cannot erase all local settings.
+  for(const [key,value] of Object.entries(incoming))localStorage.setItem(key,value);
+  for(const key of Object.keys(before))if(!(key in incoming))localStorage.removeItem(key);
 }
 lastSnapshot=JSON.stringify(incoming);}syncReady=true;$('stormCloudRetry').hidden=true;$('stormCloudStatus').textContent='Account settings synced.';delete document.documentElement.dataset.accountLocked;if(panel.open)panel.close();if(!data)await save()}catch{$('stormCloudStatus').textContent='Settings sync needs setup or a connection. Run storm-settings-setup.sql in Supabase, then retry.';$('stormCloudRetry').hidden=false;lock()}finally{restoring=false}}
 window.addEventListener('storm-account-state',e=>{if(e.detail){setTimeout(()=>restore(e.detail),0)}else{activeUser=null;syncReady=false;lock()}});
